@@ -1,0 +1,4 @@
+ - [ ] Update sim tests to register token bals
+ - [ ] add more tests to sim
+ - [ ] Add support for Malloc Actions and internal bals (this probs mean also a check registered function for internal bals)
+ - [ ] Add support for Token Setting Malloc Actions
