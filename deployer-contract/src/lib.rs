@@ -49,7 +49,7 @@ pub struct Contract {
 
 impl Default for Contract {
     fn default() -> Self {
-        let deposit_for_contract: u128 = 2 * 10_u128.pow(24);
+        let deposit_for_contract: u128 = 10 * 10_u128.pow(24);
         let contract = Self { accounts: Accounts::new(), deposit_for_contract };
         contract
     }
@@ -66,6 +66,7 @@ impl Contract {
 
     #[payable]
     pub fn deploy_contract_code(&mut self, account_id: ValidAccountId) {
+        assert_one_yocto();
         let account_id = account_id.into();
         let caller = env::predecessor_account_id();
 
