@@ -1,6 +1,6 @@
 use near_sdk::json_types::U128;
 use near_sdk::serde_json::json;
-use near_sdk_sim::{call, to_yocto, transaction::ExecutionStatus, view, DEFAULT_GAS};
+use near_sdk_sim::{call, to_yocto, transaction::ExecutionStatus, view, DEFAULT_GAS, ExecutionResult};
 
 use crate::utils::{init_with_macros as init, register_user};
 
@@ -14,6 +14,11 @@ fn simulate_init() {
 
     assert_eq!(initial_balance, total_supplies[0].0);
     assert_eq!(initial_balance, total_supplies[1].0);
+}
+
+#[test]
+fn simulate_deploying_contract() {
+    todo!()
 }
 
 // TODO: check that the internal amount increased and decreased accordingly for Alice
@@ -37,17 +42,21 @@ fn simulate_wrapping() {
         )
         .assert_success();
         // Alice deposits her tokens into the contract
-        call!(
+        let exec = call!(
             alice,
             ft.ft_transfer_call(
                 token_set.valid_account_id(),
                 initial_balance.into(),
                 None,
-                format!("{{\"sender_id\":\"{}\"}}", alice.account_id()).to_string()
+                json!({"sender_id": alice.account_id()}).to_string()
+                // format!("{{\"sender_id\":\"{}\"}}", alice.account_id()).to_string()
             ),
             deposit = 1
-        )
-        .assert_success();
+        );
+        println!("LOGS: {:?}", exec.logs());
+        exec.assert_success();
+        
+		
         let tok_bal: U128 =
             view!(token_set.get_ft_balance(alice.valid_account_id(), ft.valid_account_id()))
                 .unwrap_json();

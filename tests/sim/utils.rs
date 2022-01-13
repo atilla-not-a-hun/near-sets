@@ -1,8 +1,8 @@
 use std::convert::TryFrom;
 
 use defi::DeFiContract;
-use fungible_token::ContractContract as FtContract;
 use deployer_contract::ContractContract as DeployerContract;
+use fungible_token::ContractContract as FtContract;
 use near_sdk::AccountId;
 use token_set_fungible_token::{ContractContract as TokenSetContract, TokenWithRatioValid};
 
@@ -39,9 +39,11 @@ pub fn register_user(
         .to_string()
         .into_bytes(),
         near_sdk_sim::DEFAULT_GAS / 2,
-        near_sdk::env::storage_byte_cost() * 1_000, // attached deposit
+        // TODO: the value below should be automatic from min storage bounds
+        near_sdk::env::storage_byte_cost() * 3_000, // attached deposit
     )
     .assert_success();
+
     if register_set_ft {
         user.call(
             TOKEN_SET_ID.to_string(),
@@ -56,6 +58,7 @@ pub fn register_user(
         )
         .assert_success();
     }
+
     ft_ids.iter().for_each(|ft_id| {
         user.call(
             ft_id.to_string(),
