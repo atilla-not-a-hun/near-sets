@@ -24,7 +24,7 @@ use near_contract_standards::fungible_token::FungibleToken;
 use near_internal_balances_plugin::impl_near_balance_plugin;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LazyOption, Vector};
-use near_sdk::json_types::{ValidAccountId, U128};
+use near_sdk::json_types::{Base64VecU8, ValidAccountId, U128};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{env, log, near_bindgen, AccountId, Balance, PanicOnDefault, PromiseOrValue};
 
@@ -63,6 +63,13 @@ pub struct TokenWithRatio {
     ratio: u32,
 }
 
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct MetadataReference {
+    pub reference: String,
+    pub reference_hash: Vec<u8>,
+}
+
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct SetInfo {
     ratios: Vector<TokenWithRatio>,
@@ -98,6 +105,7 @@ impl Contract {
         platform_id: ValidAccountId,
         owner_fee: U128,
         updatable_fee: Option<bool>,
+        metadata_reference: Option<MetadataReference>,
     ) -> Self {
         Self::new(
             owner_id,
@@ -106,8 +114,10 @@ impl Contract {
                 name: name,
                 symbol: symbol,
                 icon: icon_url,
-                reference: None,
-                reference_hash: None,
+                reference: metadata_reference.as_ref().map(|r| r.reference.clone()),
+                reference_hash: metadata_reference
+                    .as_ref()
+                    .map(|r| Base64VecU8::from(r.reference_hash.clone())),
                 decimals: 24,
             },
             set_ratios,
@@ -193,6 +203,23 @@ impl FungibleTokenMetadataProvider for Contract {
     }
 }
 
+/// Metadata updating functions
+#[near_bindgen]
+impl Contract {
+    pub fn update_metadata_reference(&mut self, new_reference: Option<MetadataReference>) {
+        let mut metadata = self.metadata.get().unwrap();
+        if let Some(new_reference) = new_reference {
+            let reference = new_reference.reference;
+            let reference_hash = new_reference.reference_hash;
+            metadata.reference = Some(reference);
+            metadata.reference_hash = Some(Base64VecU8::from(reference_hash));
+        } else {
+            metadata.reference = None;
+        }
+        self.metadata.set(&metadata);
+    }
+}
+
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     use near_sdk::test_utils::{accounts, VMContextBuilder};
@@ -244,6 +271,8 @@ mod tests {
             0.into(),
             platform_id,
             0.into(),
+            None,
+            None,
         );
         testing_env!(context.is_view(true).build());
         assert_eq!(contract.ft_total_supply().0, 0);
@@ -256,6 +285,12 @@ mod tests {
         let context = get_context(accounts(1));
         testing_env!(context.build());
         let _contract = Contract::default();
+    }
+
+
+    #[test]
+    fn test_metadata_update() {
+        todo!()
     }
 
     #[test]
@@ -273,6 +308,8 @@ mod tests {
             0.into(),
             platform_id,
             0.into(),
+            None,
+            None,
         );
 
         // Paying for account registration, aka storage deposit

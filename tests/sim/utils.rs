@@ -159,6 +159,7 @@ pub fn init_with_macros(
             U128::from(platform_fee.unwrap_or(0)),
             root.valid_account_id(),
             U128::from(owner_fee.unwrap_or(0)),
+            None,
             None
         )
     );

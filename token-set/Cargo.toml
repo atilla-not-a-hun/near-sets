@@ -10,6 +10,6 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 near-sdk = "3.1.0"
 near-contract-standards = "3.1.1"
-near-account = { path = "../../near-standards/near-account" }
-near-internal-balances-plugin = { path = "../../near-standards/near-internal-balances-plugin" }
+near-account = { path = "../../../near-standards/near-account" }
+near-internal-balances-plugin = { path = "../../../near-standards/near-internal-balances-plugin" }
 uint = "0.9.1"
