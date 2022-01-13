@@ -146,6 +146,7 @@ impl Contract {
 
         metadata.assert_valid();
         let numb_tokens = set_ratios.len();
+
         let mut this = Self {
             owner_id: owner_id.to_string(),
             token: FungibleToken::new(b"a".to_vec()),
@@ -160,6 +161,12 @@ impl Contract {
         if platform != owner {
             this.token.internal_register_account(platform);
         }
+
+        // Calculate the minimum account storage required for wrapping
+        let account_storage_min = this.accounts.default_min_storage_bal
+            + (numb_tokens as u128 * this.get_storage_cost_for_one_balance());
+
+        this.accounts.default_min_storage_bal = account_storage_min;
 
         this
     }
@@ -256,8 +263,9 @@ mod tests {
         testing_env!(context.build());
         contract.storage_deposit(Some(account.clone()), None);
 
-        let context =
-            context.attached_deposit(contract.accounts_storage_balance_bounds().min.0 * 3);
+        let cost_for_account = contract.accounts_storage_balance_bounds().min;
+        println!("Cost for account: {}", cost_for_account.0);
+        let context = context.attached_deposit(cost_for_account.0);
         testing_env!(context.build());
         contract.accounts_storage_deposit(Some(account.clone()), None);
 
@@ -300,6 +308,12 @@ mod tests {
     #[test]
     fn test_metadata_update() {
         todo!()
+    }
+
+    #[test]
+    fn test_min_account_storage() {
+        todo!()
+        // test that min storage goes up linearly with an increase in n_tokens
     }
 
     #[test]
