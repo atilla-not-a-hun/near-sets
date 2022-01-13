@@ -12,6 +12,7 @@ near-sdk-sim = "3.1.1"
 token-set-fungible-token = { path = "./token-set" }
 defi = { path = "./test-contract-defi" }
 fungible-token = { path = "./ft" }
+deployer-contract = { path = "./deployer-contract" }
 
 [profile.release]
 codegen-units = 1
@@ -27,4 +28,5 @@ overflow-checks = true
 members = [
   "ft",
   "test-contract-defi",
+  "deployer-contract"
 ]

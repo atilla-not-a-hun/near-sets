@@ -2,6 +2,7 @@ use std::convert::TryFrom;
 
 use defi::DeFiContract;
 use fungible_token::ContractContract as FtContract;
+use deployer_contract::ContractContract as DeployerContract;
 use near_sdk::AccountId;
 use token_set_fungible_token::{ContractContract as TokenSetContract, TokenWithRatioValid};
 
@@ -16,10 +17,12 @@ near_sdk_sim::lazy_static_include::lazy_static_include_bytes! {
     TOKEN_SET_WASM_BYTES => "res/token_set_fungible_token.wasm",
     FT_WASM_BYTES => "res/fungible_token.wasm",
     DEFI_WASM_BYTES => "res/defi.wasm",
+    DEPLOY_WASM_BYTES => "res/deployer_contract.wasm",
 }
 
 const TOKEN_SET_ID: &str = "token-set";
 const DEFI_ID: &str = "defi";
+const DEPLOY_ID: &str = "deploy";
 
 // Register the given `user` with FT contract
 pub fn register_user(
@@ -104,6 +107,7 @@ pub fn init_with_macros(
     UserAccount,
     ContractAccount<TokenSetContract>,
     ContractAccount<DeFiContract>,
+    ContractAccount<DeployerContract>,
     Vec<ContractAccount<FtContract>>,
     UserAccount,
 ) {
@@ -144,6 +148,14 @@ pub fn init_with_macros(
         .collect();
 
     let owner_bob = root.create_user("owner_bob".to_string(), to_yocto("100"));
+
+    let deployer_contract = deploy!(
+        contract: DeployerContract,
+        contract_id: DEPLOY_ID,
+        bytes: &DEPLOY_WASM_BYTES,
+        signer_account: root,
+        init_method: new()
+    );
     // TODO
     // uses default values for deposit and gas
     let token_set = deploy!(
@@ -188,5 +200,5 @@ pub fn init_with_macros(
         )
     );
 
-    (root, owner_bob, token_set, defi, ft_contracts, alice)
+    (root, owner_bob, token_set, defi, deployer_contract, ft_contracts, alice)
 }

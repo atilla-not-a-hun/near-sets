@@ -759,6 +759,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "deployer-contract"
+version = "0.1.0"
+dependencies = [
+ "near-account",
+ "near-contract-standards",
+ "near-sdk",
+]
+
+[[package]]
 name = "derive_more"
 version = "0.99.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2848,6 +2857,7 @@ name = "token-set-fungible-token-wrapper"
 version = "0.0.1"
 dependencies = [
  "defi",
+ "deployer-contract",
  "fungible-token",
  "near-sdk",
  "near-sdk-sim",

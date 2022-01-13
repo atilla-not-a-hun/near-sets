@@ -7,7 +7,7 @@ use crate::utils::{init_with_macros as init, register_user};
 #[test]
 fn simulate_init() {
     let initial_balance = 1_000;
-    let (_, _, token_set, _, fts, _) = init(vec![1, 2], None, None, initial_balance);
+    let (_, _, token_set, _, _, fts, _) = init(vec![1, 2], None, None, initial_balance);
 
     let total_supplies: Vec<U128> =
         fts.iter().map(|ft| view!(ft.ft_total_supply()).unwrap_json()).collect();
@@ -25,7 +25,7 @@ fn simulate_wrapping() {
 
     // 4% fee
     let owner_fee = 40_000_000_000_000;
-    let (root, owner_bob, token_set, _, fts, alice) =
+    let (root, owner_bob, token_set, _, _deployer, fts, alice) =
         init(vec![1, 2, 4], Some(platform_fee), Some(owner_fee), initial_balance);
 
     fts.iter().for_each(|ft| {
