@@ -141,6 +141,9 @@ impl Contract {
     ) -> Self {
         assert!(!env::state_exists(), "Already initialized");
 
+        let owner = &String::from(owner_id.clone());
+        let platform = &set_initial_fee.platform_id.clone();
+
         metadata.assert_valid();
         let numb_tokens = set_ratios.len();
         let mut this = Self {
@@ -150,6 +153,13 @@ impl Contract {
             accounts: Accounts::new(),
             set_info: SetInfo::new(set_ratios, set_initial_fee),
         };
+
+        // Register the platform and owner with the token
+        this.token.internal_register_account(owner);
+        // Register the platform if it is different from the owner
+        if platform != owner {
+            this.token.internal_register_account(platform);
+        }
 
         this
     }
@@ -286,7 +296,6 @@ mod tests {
         testing_env!(context.build());
         let _contract = Contract::default();
     }
-
 
     #[test]
     fn test_metadata_update() {

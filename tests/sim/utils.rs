@@ -22,7 +22,11 @@ const TOKEN_SET_ID: &str = "token-set";
 const DEFI_ID: &str = "defi";
 
 // Register the given `user` with FT contract
-pub fn register_user(ft_ids: &Vec<AccountId>, user: &near_sdk_sim::UserAccount) {
+pub fn register_user(
+    ft_ids: &Vec<AccountId>,
+    user: &near_sdk_sim::UserAccount,
+    register_set_ft: bool,
+) {
     user.call(
         TOKEN_SET_ID.to_string(),
         "accounts_storage_deposit",
@@ -35,18 +39,20 @@ pub fn register_user(ft_ids: &Vec<AccountId>, user: &near_sdk_sim::UserAccount) 
         near_sdk::env::storage_byte_cost() * 1_000, // attached deposit
     )
     .assert_success();
-    user.call(
-        TOKEN_SET_ID.to_string(),
-        "storage_deposit",
-        &json!({
-            "account_id": user.valid_account_id()
-        })
-        .to_string()
-        .into_bytes(),
-        near_sdk_sim::DEFAULT_GAS / 2,
-        near_sdk::env::storage_byte_cost() * 125, // attached deposit
-    )
-    .assert_success();
+    if register_set_ft {
+        user.call(
+            TOKEN_SET_ID.to_string(),
+            "storage_deposit",
+            &json!({
+                "account_id": user.valid_account_id()
+            })
+            .to_string()
+            .into_bytes(),
+            near_sdk_sim::DEFAULT_GAS / 2,
+            near_sdk::env::storage_byte_cost() * 125, // attached deposit
+        )
+        .assert_success();
+    }
     ft_ids.iter().for_each(|ft_id| {
         user.call(
             ft_id.to_string(),
@@ -164,10 +170,13 @@ pub fn init_with_macros(
         )
     );
     let alice = root.create_user("alice".to_string(), to_yocto("100"));
-    register_user(&ft_ids, &alice);
-    register_user(&ft_ids, &root);
-    register_user(&ft_ids, &owner_bob);
-    register_user(&ft_ids, &token_set.user_account);
+    register_user(&ft_ids, &alice, true);
+
+    // No need to register the platform or owner with the ft as this is done automatically on
+    // contract initialization
+    register_user(&ft_ids, &root, false);
+    register_user(&ft_ids, &owner_bob, false);
+    register_user(&ft_ids, &token_set.user_account, false);
 
     let defi = deploy!(
         contract: DeFiContract,
