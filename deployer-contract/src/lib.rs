@@ -65,9 +65,9 @@ impl Contract {
     }
 
     #[payable]
-    pub fn deploy_contract_code(&mut self, account_id: ValidAccountId) {
+    pub fn deploy_contract_code(&mut self, account_prefix: String) {
         assert_one_yocto();
-        let account_id = account_id.into();
+        let account_id = format!("{}.{}", account_prefix, env::current_account_id());
         let caller = env::predecessor_account_id();
 
         let mut account = self.accounts.get_account_checked(&caller);
@@ -82,11 +82,13 @@ impl Contract {
         account.info.deployed_contracts.push(&account_id);
         self.accounts.insert_account_check_storage(&caller, &mut account);
 
+        // These al are one 'action' and if a failure occurs, the transfer should be reverted
         let prom = Promise::new(account_id.clone())
             .create_account()
             .transfer(self.deposit_for_contract)
             .add_full_access_key(env::signer_account_pk())
             .deploy_contract(include_bytes!("../../res/token_set_fungible_token.wasm").to_vec());
+
         prom.then(
             Promise::new(env::current_account_id()).function_call(
                 b"resolve_contract_deploy".to_vec(),
@@ -111,19 +113,30 @@ impl Contract {
             PromiseResult::Failed => {
                 log!("Registering contract {} for caller {} failed", &contract_id, &caller);
                 // Remove the contract from the vec
-                let mut account = self.accounts.get_account_checked(&caller);
-                let contract = account
-                    .info
-                    .deployed_contracts
-                    .iter()
-                    .enumerate()
-                    .find(|(i, contr)| contr == &contract_id);
-                if contract.is_none() {
-                    log!("Expected to find contract {}")
-                } else {
-                    let (idx, _) = contract.unwrap();
-                    account.info.deployed_contracts.swap_remove(idx as u64);
-                    self.accounts.insert_account_check_storage(&caller, &mut account);
+                let account = self.accounts.get_account(&caller);
+                match account {
+                    Some(mut account) => {
+                        // Refund the near transferred to the new account
+                        account.near_used_for_storage -= self.deposit_for_contract;
+
+                        // Remove the contract from the list of tokens
+                        let contract = account
+                            .info
+                            .deployed_contracts
+                            .iter()
+                            .enumerate()
+                            .find(|(i, contr)| contr == &contract_id);
+                        if contract.is_none() {
+                            log!("Expected to find contract {}")
+                        } else {
+                            let (idx, _) = contract.unwrap();
+                            account.info.deployed_contracts.swap_remove(idx as u64);
+                            self.accounts.insert_account_check_storage(&caller, &mut account);
+                        }
+                    }
+                    None => {
+                        log!("The account was deleted")
+                    }
                 }
             }
         }
