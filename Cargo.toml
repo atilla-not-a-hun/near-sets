@@ -13,6 +13,7 @@ token-set-fungible-token = { path = "./token-set" }
 defi = { path = "./test-contract-defi" }
 fungible-token = { path = "./ft" }
 deployer-contract = { path = "./deployer-contract" }
+shared = { path = "./shared" }
 
 [profile.release]
 codegen-units = 1

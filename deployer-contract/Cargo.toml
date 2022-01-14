@@ -10,6 +10,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 near-sdk = "3.1.0"
 near-account = { path = "../../../near-standards/near-account" }
+shared = { path = "../shared" }
 near-contract-standards = "3.1.1"
 
 [profile.release]

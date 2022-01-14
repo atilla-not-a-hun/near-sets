@@ -27,6 +27,7 @@ use near_sdk::collections::{LazyOption, Vector};
 use near_sdk::json_types::{Base64VecU8, ValidAccountId, U128};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{env, log, near_bindgen, AccountId, Balance, PanicOnDefault, PromiseOrValue};
+use shared::{TokenWithRatio, MetadataReference, TokenWithRatioValid};
 
 mod account_info;
 mod token_set_info;
@@ -48,28 +49,6 @@ pub struct FeeReceiver {
     /// Whether the fee can be updated after instantiation
     updatable: bool,
 }
-
-#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-pub struct TokenWithRatioValid {
-    pub token_id: ValidAccountId,
-    pub ratio: u32,
-}
-
-#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-pub struct TokenWithRatio {
-    token_id: AccountId,
-    ratio: u32,
-}
-
-#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-pub struct MetadataReference {
-    pub reference: String,
-    pub reference_hash: Vec<u8>,
-}
-
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct SetInfo {
     ratios: Vector<TokenWithRatio>,
@@ -100,7 +79,6 @@ impl Contract {
         symbol: String,
         icon_url: Option<String>,
         set_ratios: Vec<TokenWithRatioValid>,
-        // TODO: should be hardcoded?
         platform_fee: U128,
         platform_id: ValidAccountId,
         owner_fee: U128,

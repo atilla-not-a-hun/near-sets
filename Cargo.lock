@@ -765,6 +765,7 @@ dependencies = [
  "near-account",
  "near-contract-standards",
  "near-sdk",
+ "shared",
 ]
 
 [[package]]
@@ -2605,6 +2606,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "shared"
+version = "0.1.0"
+dependencies = [
+ "near-sdk",
+]
+
+[[package]]
 name = "shlex"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2849,6 +2857,7 @@ dependencies = [
  "near-contract-standards",
  "near-internal-balances-plugin",
  "near-sdk",
+ "shared",
  "uint",
 ]
 
@@ -2861,6 +2870,7 @@ dependencies = [
  "fungible-token",
  "near-sdk",
  "near-sdk-sim",
+ "shared",
  "token-set-fungible-token",
 ]
 

@@ -4,7 +4,8 @@ use defi::DeFiContract;
 use deployer_contract::ContractContract as DeployerContract;
 use fungible_token::ContractContract as FtContract;
 use near_sdk::AccountId;
-use token_set_fungible_token::{ContractContract as TokenSetContract, TokenWithRatioValid};
+use shared::TokenWithRatioValid;
+use token_set_fungible_token::ContractContract as TokenSetContract;
 
 use near_sdk::json_types::{ValidAccountId, U128};
 use near_sdk::serde_json::json;

@@ -1,6 +1,9 @@
 use near_sdk::json_types::U128;
 use near_sdk::serde_json::json;
-use near_sdk_sim::{call, to_yocto, transaction::ExecutionStatus, view, DEFAULT_GAS, ExecutionResult};
+use near_sdk_sim::{
+    call, to_yocto, transaction::ExecutionStatus, view, ExecutionResult, DEFAULT_GAS,
+};
+use shared::TokenWithRatioValid;
 
 use crate::utils::{init_with_macros as init, register_user};
 
@@ -18,7 +21,37 @@ fn simulate_init() {
 
 #[test]
 fn simulate_deploying_contract() {
-    todo!()
+    let initial_balance = 1_000;
+    let set_name = "bboy".to_string();
+    let set_symbol = "BB".to_string();
+    let (root, owner_bob, _token_set, _, deployer, fts, alice) =
+        init(vec![1, 2, 4], Some(0), Some(0), initial_balance);
+
+    call!(owner_bob, deployer.accounts_storage_deposit(None, None), deposit = to_yocto("10.1"))
+        .assert_success();
+
+    call!(
+        owner_bob,
+        deployer.deploy_contract_code(
+            set_name.clone(),
+            owner_bob.valid_account_id(),
+            set_name.clone(),
+            set_symbol.clone(),
+            None,
+            vec![
+                TokenWithRatioValid { token_id: fts[0].valid_account_id(), ratio: 1 },
+                TokenWithRatioValid { token_id: fts[1].valid_account_id(), ratio: 2 },
+                TokenWithRatioValid { token_id: fts[2].valid_account_id(), ratio: 4 }
+            ],
+            0.into(),
+            root.valid_account_id(),
+            0.into(),
+            None,
+            None
+        ),
+        deposit = 1
+    )
+    .assert_success();
 }
 
 // TODO: check that the internal amount increased and decreased accordingly for Alice
@@ -48,15 +81,13 @@ fn simulate_wrapping() {
                 token_set.valid_account_id(),
                 initial_balance.into(),
                 None,
-                json!({"sender_id": alice.account_id()}).to_string()
-                // format!("{{\"sender_id\":\"{}\"}}", alice.account_id()).to_string()
+                json!({"sender_id": alice.account_id()}).to_string() // format!("{{\"sender_id\":\"{}\"}}", alice.account_id()).to_string()
             ),
             deposit = 1
         );
         println!("LOGS: {:?}", exec.logs());
         exec.assert_success();
-        
-		
+
         let tok_bal: U128 =
             view!(token_set.get_ft_balance(alice.valid_account_id(), ft.valid_account_id()))
                 .unwrap_json();

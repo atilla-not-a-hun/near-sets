@@ -20,9 +20,11 @@ use near_sdk::collections::{LookupMap, Vector};
 use near_sdk::json_types::{ValidAccountId, U128};
 use near_sdk::serde_json::json;
 use near_sdk::{
-    assert_one_yocto, env, near_bindgen, setup_alloc, AccountId, Balance, Promise, PromiseResult,
+    assert_one_yocto, env, near_bindgen, setup_alloc, AccountId, Balance, Promise, PromiseOrValue,
+    PromiseResult,
 };
 use near_sdk::{log, Gas};
+use shared::{MetadataReference, TokenWithRatioValid};
 
 setup_alloc!();
 const BASE_GAS: Gas = 5_000_000_000_000;
@@ -64,10 +66,33 @@ impl Contract {
         Self::default()
     }
 
+    pub fn get_all_sets(&self) -> Vec<AccountId> {
+        let mut sets = vec![];
+        for (_deployer, set_deployer_account) in self.accounts.accounts.iter() {
+            for tok in set_deployer_account.info.deployed_contracts.iter() {
+                sets.push(tok);
+            }
+        }
+        sets
+    }
+
     #[payable]
-    pub fn deploy_contract_code(&mut self, account_prefix: String) {
+    pub fn deploy_contract_code(
+        &mut self,
+        contract_account_prefix: String,
+        owner_id: ValidAccountId,
+        name: String,
+        symbol: String,
+        icon_url: Option<String>,
+        set_ratios: Vec<TokenWithRatioValid>,
+        platform_fee: U128,
+        platform_id: ValidAccountId,
+        owner_fee: U128,
+        updatable_fee: Option<bool>,
+        metadata_reference: Option<MetadataReference>,
+    ) {
         assert_one_yocto();
-        let account_id = format!("{}.{}", account_prefix, env::current_account_id());
+        let account_id = format!("{}.{}", contract_account_prefix, env::current_account_id());
         let caller = env::predecessor_account_id();
 
         let mut account = self.accounts.get_account_checked(&caller);
@@ -94,22 +119,71 @@ impl Contract {
                 b"resolve_contract_deploy".to_vec(),
                 json!({
                     "caller": caller.clone(),
-                    "contract_id": account_id.clone()
+                    "contract_id": account_id.clone(),
+                    "owner_id": owner_id,
+                    "name": name,
+                    "symbol": symbol,
+                    "icon_url": icon_url,
+                    "set_ratios": set_ratios,
+                    "platform_fee": platform_fee,
+                    "platform_id": platform_id,
+                    "owner_fee": owner_fee,
+                    "updatable_fee": updatable_fee,
+                    "metadata_reference": metadata_reference,
+
                 })
                 .to_string()
                 .as_bytes()
                 .to_vec(),
                 0,
-                BASE_GAS * 2,
+                BASE_GAS * 20,
             ),
         );
     }
 
     #[private]
-    pub fn resolve_contract_deploy(&mut self, caller: AccountId, contract_id: AccountId) {
+    pub fn resolve_contract_deploy(
+        &mut self,
+        caller: AccountId,
+        owner_id: AccountId,
+        contract_id: AccountId,
+        name: String,
+        symbol: String,
+        icon_url: Option<String>,
+        set_ratios: Vec<TokenWithRatioValid>,
+        platform_fee: U128,
+        platform_id: ValidAccountId,
+        owner_fee: U128,
+        updatable_fee: Option<bool>,
+        metadata_reference: Option<MetadataReference>,
+    ) -> PromiseOrValue<()> {
         match env::promise_result(0) {
             PromiseResult::NotReady => unreachable!(),
-            PromiseResult::Successful(_v) => {}
+            // Call the init function
+            // TODO: put into the resolve fn...
+            PromiseResult::Successful(_v) => {
+                let prom = Promise::new(contract_id).function_call(
+                    b"new_default_meta".to_vec(),
+                    json!({
+                            "owner_id": owner_id,
+                            "name": name,
+                            "symbol": symbol,
+                            "icon_url": icon_url,
+                            "set_ratios": set_ratios,
+                            "platform_fee": platform_fee,
+                            "platform_id": platform_id,
+                            "owner_fee": owner_fee,
+                            "updatable_fee": updatable_fee,
+                            "metadata_reference": metadata_reference,
+                    })
+                    .to_string()
+                    .as_bytes()
+                    .to_vec(),
+                    0,
+                    BASE_GAS * 10,
+                );
+                PromiseOrValue::Promise(prom)
+            }
             PromiseResult::Failed => {
                 log!("Registering contract {} for caller {} failed", &contract_id, &caller);
                 // Remove the contract from the vec
@@ -137,7 +211,8 @@ impl Contract {
                     None => {
                         log!("The account was deleted")
                     }
-                }
+                };
+                PromiseOrValue::Value(())
             }
         }
     }
