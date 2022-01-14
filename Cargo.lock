@@ -2868,6 +2868,7 @@ dependencies = [
  "defi",
  "deployer-contract",
  "fungible-token",
+ "near-contract-standards",
  "near-sdk",
  "near-sdk-sim",
  "shared",

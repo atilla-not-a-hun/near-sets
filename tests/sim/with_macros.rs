@@ -1,9 +1,11 @@
-use near_sdk::json_types::U128;
-use near_sdk::serde_json::json;
+use near_contract_standards::fungible_token::metadata::FungibleTokenMetadata;
+use near_sdk::serde_json::{self, json};
+use near_sdk::{json_types::U128, AccountId};
 use near_sdk_sim::{
     call, to_yocto, transaction::ExecutionStatus, view, ExecutionResult, DEFAULT_GAS,
 };
 use shared::TokenWithRatioValid;
+use token_set_fungible_token::SetMetadata;
 
 use crate::utils::{init_with_macros as init, register_user};
 
@@ -22,9 +24,10 @@ fn simulate_init() {
 #[test]
 fn simulate_deploying_contract() {
     let initial_balance = 1_000;
-    let set_name = "bboy".to_string();
-    let set_symbol = "BB".to_string();
-    let (root, owner_bob, _token_set, _, deployer, fts, alice) =
+    let account_prefix = "bb".to_string();
+    let set_name = "YOUR MOM TOKEN".to_string();
+    let set_symbol = "YR MOM".to_string();
+    let (root, owner_bob, token_set_og, _, deployer, fts, alice) =
         init(vec![1, 2, 4], Some(0), Some(0), initial_balance);
 
     call!(owner_bob, deployer.accounts_storage_deposit(None, None), deposit = to_yocto("10.1"))
@@ -33,7 +36,7 @@ fn simulate_deploying_contract() {
     call!(
         owner_bob,
         deployer.deploy_contract_code(
-            set_name.clone(),
+            account_prefix.clone(),
             owner_bob.valid_account_id(),
             set_name.clone(),
             set_symbol.clone(),
@@ -52,6 +55,21 @@ fn simulate_deploying_contract() {
         deposit = 1
     )
     .assert_success();
+    let deployed: Vec<AccountId> = view!(deployer.get_all_sets()).unwrap_json();
+    let deployed_1_account_id = format!("{}.{}", account_prefix, deployer.account_id());
+    assert_eq!(deployed.len(), 1);
+    assert_eq!(deployed[0], deployed_1_account_id.clone());
+
+    let metadata: SetMetadata = root
+        .view(deployed_1_account_id, "set_metadata", &json!({}).to_string().into_bytes())
+        .unwrap_json();
+    println!("METADATA: {}", serde_json::to_string(&metadata).unwrap());
+    let metadata_str = serde_json::to_string(&metadata).unwrap();
+
+    let metadata_og: SetMetadata = view!(token_set_og.set_metadata()).unwrap_json();
+    let metadata_og_str = serde_json::to_string(&metadata_og).unwrap();
+    assert_eq!(metadata_str, metadata_og_str);
+
 }
 
 // TODO: check that the internal amount increased and decreased accordingly for Alice

@@ -27,7 +27,7 @@ use near_sdk::collections::{LazyOption, Vector};
 use near_sdk::json_types::{Base64VecU8, ValidAccountId, U128};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{env, log, near_bindgen, AccountId, Balance, PanicOnDefault, PromiseOrValue};
-use shared::{TokenWithRatio, MetadataReference, TokenWithRatioValid};
+use shared::{MetadataReference, TokenWithRatio, TokenWithRatioValid};
 
 mod account_info;
 mod token_set_info;
@@ -36,7 +36,7 @@ mod utils;
 near_sdk::setup_alloc!();
 
 // TODO: do we bake in hardcoded fee to us????
-#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, Serialize, Deserialize)]
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, Serialize, Deserialize, Clone)]
 #[serde(crate = "near_sdk::serde")]
 /// Contains the fees for minting tokens.
 pub struct FeeReceiver {
@@ -53,6 +53,14 @@ pub struct FeeReceiver {
 pub struct SetInfo {
     ratios: Vector<TokenWithRatio>,
     fee: FeeReceiver,
+}
+
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, PanicOnDefault)]
+#[serde(crate = "near_sdk::serde")]
+pub struct SetMetadata {
+    ft_metadata: FungibleTokenMetadata,
+    set_fee: FeeReceiver,
+    set_ratios: Vec<TokenWithRatio>,
 }
 
 #[near_bindgen]
@@ -201,6 +209,14 @@ impl FungibleTokenMetadataProvider for Contract {
 /// Metadata updating functions
 #[near_bindgen]
 impl Contract {
+    pub fn set_metadata(&self) -> SetMetadata {
+        SetMetadata {
+            ft_metadata: self.metadata.get().unwrap(),
+            set_fee: self.set_info.fee.clone(),
+            set_ratios: self.set_info.ratios.to_vec(),
+        }
+    }
+
     pub fn update_metadata_reference(&mut self, new_reference: Option<MetadataReference>) {
         let mut metadata = self.metadata.get().unwrap();
         if let Some(new_reference) = new_reference {

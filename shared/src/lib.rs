@@ -7,7 +7,7 @@ pub struct TokenWithRatioValid {
     pub ratio: u32,
 }
 
-#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, Serialize, Deserialize)]
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, Serialize, Deserialize, Clone)]
 #[serde(crate = "near_sdk::serde")]
 pub struct TokenWithRatio {
     pub token_id: AccountId,
