@@ -69,7 +69,16 @@ fn simulate_deploying_contract() {
     let metadata_og: SetMetadata = view!(token_set_og.set_metadata()).unwrap_json();
     let metadata_og_str = serde_json::to_string(&metadata_og).unwrap();
     assert_eq!(metadata_str, metadata_og_str);
+}
 
+#[test]
+#[should_panic]
+fn simulate_overwrapping() {
+    let initial_balance = 1_000;
+    let (root, owner_bob, token_set, _, _deployer, fts, alice) =
+        init(vec![1, 2, 4], Some(0), Some(0), initial_balance);
+
+    call!(alice, token_set.wrap(Some(100.into())), deposit = 1).assert_success();
 }
 
 // TODO: check that the internal amount increased and decreased accordingly for Alice
@@ -81,8 +90,9 @@ fn simulate_wrapping() {
 
     // 4% fee
     let owner_fee = 40_000_000_000_000;
+    let ratios = vec![1, 2, 4];
     let (root, owner_bob, token_set, _, _deployer, fts, alice) =
-        init(vec![1, 2, 4], Some(platform_fee), Some(owner_fee), initial_balance);
+        init(ratios.clone(), Some(platform_fee), Some(owner_fee), initial_balance);
 
     fts.iter().for_each(|ft| {
         // Transfer tokens to Alice
@@ -119,6 +129,16 @@ fn simulate_wrapping() {
     let expected_bob = amount_minted * 4_000 / 100_000;
     let expected_alice = amount_minted - expected_bob - expected_root;
 
+    // Check the ft balances decreased after wrapping
+    // Check the balances increased on unwrapping
+    fts.iter().enumerate().for_each(|(i, ft)| {
+        let tok_bal: U128 =
+            view!(token_set.get_ft_balance(alice.valid_account_id(), ft.valid_account_id()))
+                .unwrap_json();
+        let expected_bal = initial_balance - amount_minted * ratios[i] as u128;
+        assert_eq!(tok_bal.0, expected_bal);
+    });
+
     let total_supply: U128 = view!(token_set.ft_total_supply()).unwrap_json();
     assert_eq!(total_supply.0, amount_minted);
 
@@ -138,6 +158,7 @@ fn simulate_wrapping() {
     let total_supply: U128 = view!(token_set.ft_total_supply()).unwrap_json();
     assert_eq!(total_supply.0, amount_minted);
 
+    // Unwrap
     call!(alice, token_set.unwrap(U128::from(expected_alice)), deposit = 1).assert_success();
 
     let total_supply: U128 = view!(token_set.ft_total_supply()).unwrap_json();
@@ -147,9 +168,15 @@ fn simulate_wrapping() {
         view!(token_set.ft_balance_of(alice.valid_account_id())).unwrap_json();
     assert_eq!(alice_balance.0, 0);
 
-    // Test alice burning her tokens
-    // TODO: burning
-    // call!(alice, token_set.ft_bu)
+    // Check the balances increased on unwrapping
+    fts.iter().enumerate().for_each(|(i, ft)| {
+        let tok_bal: U128 =
+            view!(token_set.get_ft_balance(alice.valid_account_id(), ft.valid_account_id()))
+                .unwrap_json();
+        let fee_taken = (bob_balance.0 + root_balance.0) * ratios[i] as u128;
+        let expected_bal = initial_balance - fee_taken;
+        assert_eq!(tok_bal.0, expected_bal);
+    });
 }
 
 // #[test]

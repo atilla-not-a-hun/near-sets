@@ -1,6 +1,11 @@
-use near_sdk::{serde::{self, Serialize, Deserialize}, borsh::{self, BorshDeserialize, BorshSerialize}, PanicOnDefault, json_types::ValidAccountId, AccountId};
+use near_sdk::{
+    borsh::{self, BorshDeserialize, BorshSerialize},
+    json_types::ValidAccountId,
+    serde::{self, Deserialize, Serialize},
+    AccountId, PanicOnDefault,
+};
 
-#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, Serialize, Deserialize)]
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, Serialize, Deserialize, Debug)]
 #[serde(crate = "near_sdk::serde")]
 pub struct TokenWithRatioValid {
     pub token_id: ValidAccountId,
@@ -14,7 +19,7 @@ pub struct TokenWithRatio {
     pub ratio: u32,
 }
 
-#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, Serialize, Deserialize)]
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, Serialize, Deserialize, Clone)]
 #[serde(crate = "near_sdk::serde")]
 pub struct MetadataReference {
     pub reference: String,

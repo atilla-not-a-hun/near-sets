@@ -16,7 +16,7 @@ NOTES:
     keys on its account.
 */
 use account_info::AccountInfo;
-use near_account::{Accounts, NearAccounts};
+use near_account::{AccountInfoTrait, Accounts, NearAccounts};
 use near_contract_standards::fungible_token::metadata::{
     FungibleTokenMetadata, FungibleTokenMetadataProvider, FT_METADATA_SPEC,
 };
@@ -26,7 +26,9 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LazyOption, Vector};
 use near_sdk::json_types::{Base64VecU8, ValidAccountId, U128};
 use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::{env, log, near_bindgen, AccountId, Balance, PanicOnDefault, PromiseOrValue};
+use near_sdk::{
+    assert_one_yocto, env, log, near_bindgen, AccountId, Balance, PanicOnDefault, PromiseOrValue,
+};
 use shared::{MetadataReference, TokenWithRatio, TokenWithRatioValid};
 
 mod account_info;
@@ -35,7 +37,6 @@ mod utils;
 
 near_sdk::setup_alloc!();
 
-// TODO: do we bake in hardcoded fee to us????
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault, Serialize, Deserialize, Clone)]
 #[serde(crate = "near_sdk::serde")]
 /// Contains the fees for minting tokens.
@@ -116,9 +117,48 @@ impl Contract {
         )
     }
 
+    #[payable]
+    pub fn wrap(&mut self, amount: Option<U128>) {
+        assert_one_yocto();
+        self.wrap_internal(&self.owner_id.clone(), amount.map(|a| a.0));
+    }
+
+    #[payable]
+    pub fn unwrap(&mut self, amount: U128) {
+        assert_one_yocto();
+        self.unwrap_token(amount.into())
+    }
+
+    #[payable]
+    pub fn update_owner_fee(&mut self, new_fee: u128) {
+        assert_one_yocto();
+        assert_eq!(
+            env::predecessor_account_id(),
+            self.owner_id,
+            "Only the owner can update the fee"
+        );
+
+        self.change_owner_fee(new_fee);
+    }
+
+    // TODO: let's think about,
+    // if there account was deleted that means we have to do something with the balance
+    // maybe we j transfer to platform?
+    fn on_account_closed(&mut self, account_id: AccountId, balance: Balance) {
+        log!("Closed @{} with {}", account_id, balance);
+        let platform_id = self.set_info.fee.platform_id.clone();
+        self.on_burn(platform_id, balance);
+    }
+
+    fn on_tokens_burned(&mut self, account_id: AccountId, amount: Balance) {
+        log!("Account @{} burned {}", account_id, amount);
+        self.on_burn(account_id, amount);
+    }
+}
+
+impl Contract {
     /// Initializes the contract with the given total supply owned by the given `owner_id` with
     /// the given fungible token metadata.
-    #[init]
     pub fn new(
         owner_id: ValidAccountId,
         metadata: FungibleTokenMetadata,
@@ -147,7 +187,6 @@ impl Contract {
         if platform != owner {
             this.token.internal_register_account(platform);
         }
-
         // Calculate the minimum account storage required for wrapping
         let account_storage_min = this.accounts.default_min_storage_bal
             + (numb_tokens as u128 * this.get_storage_cost_for_one_balance());
@@ -155,44 +194,6 @@ impl Contract {
         this.accounts.default_min_storage_bal = account_storage_min;
 
         this
-    }
-
-    #[payable]
-    pub fn wrap(&mut self, amount: Option<u128>) {
-        utils::assert_1_yocto();
-        self.wrap_internal(&self.owner_id.clone(), amount);
-    }
-
-    #[payable]
-    pub fn unwrap(&mut self, amount: U128) {
-        utils::assert_1_yocto();
-        self.unwrap_token(amount.into())
-    }
-
-    #[payable]
-    pub fn update_owner_fee(&mut self, new_fee: u128) {
-        utils::assert_1_yocto();
-        assert_eq!(
-            env::predecessor_account_id(),
-            self.owner_id,
-            "Only the owner can update the fee"
-        );
-
-        self.change_owner_fee(new_fee);
-    }
-
-    // TODO: let's think about,
-    // if there account was deleted that means we have to do something with the balance
-    // maybe we j transfer to platform?
-    fn on_account_closed(&mut self, account_id: AccountId, balance: Balance) {
-        log!("Closed @{} with {}", account_id, balance);
-        let platform_id = self.set_info.fee.platform_id.clone();
-        self.on_burn(platform_id, balance);
-    }
-
-    fn on_tokens_burned(&mut self, account_id: AccountId, amount: Balance) {
-        log!("Account @{} burned {}", account_id, amount);
-        self.on_burn(account_id, amount);
     }
 }
 
@@ -203,6 +204,16 @@ near_contract_standards::impl_fungible_token_storage!(Contract, token, on_accoun
 impl FungibleTokenMetadataProvider for Contract {
     fn ft_metadata(&self) -> FungibleTokenMetadata {
         self.metadata.get().unwrap()
+    }
+}
+
+impl Contract {
+    fn assert_owner(&self) {
+        assert_eq!(
+            self.owner_id,
+            env::predecessor_account_id(),
+            "Expected the caller to be the owner"
+        );
     }
 }
 
@@ -218,6 +229,7 @@ impl Contract {
     }
 
     pub fn update_metadata_reference(&mut self, new_reference: Option<MetadataReference>) {
+        self.assert_owner();
         let mut metadata = self.metadata.get().unwrap();
         if let Some(new_reference) = new_reference {
             let reference = new_reference.reference;
@@ -226,6 +238,7 @@ impl Contract {
             metadata.reference_hash = Some(Base64VecU8::from(reference_hash));
         } else {
             metadata.reference = None;
+            metadata.reference_hash = None;
         }
         self.metadata.set(&metadata);
     }
@@ -233,6 +246,8 @@ impl Contract {
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
+    use std::convert::TryFrom;
+
     use near_sdk::test_utils::{accounts, VMContextBuilder};
     use near_sdk::{testing_env, Balance};
     use near_sdk::{MockedBlockchain, VMConfig};
@@ -300,14 +315,96 @@ mod tests {
     }
 
     #[test]
-    fn test_metadata_update() {
-        todo!()
+    #[should_panic(expected = "Each token in the ratio must be unique")]
+    fn test_non_unique_tokens() {
+        let context = get_context(accounts(1));
+        testing_env!(context.build());
+        let contract = Contract::new_default_meta(
+            accounts(2).into(),
+            "YOUR MOM".to_string(),
+            "YOUR MOM".to_string(),
+            None,
+            vec![
+                TokenWithRatioValid { token_id: accounts(0), ratio: 1 },
+                TokenWithRatioValid { token_id: accounts(0), ratio: 1 },
+            ],
+            0.into(),
+            accounts(1),
+            0.into(),
+            None,
+            None,
+        );
     }
 
     #[test]
+    fn test_metadata_update() {
+        let context = get_context(accounts(1));
+        testing_env!(context.build());
+        let token_id = accounts(5);
+        let mut contract = Contract::new_default_meta(
+            accounts(1),
+            "YY".to_string(),
+            "YY".to_string(),
+            None,
+            vec![TokenWithRatioValid { token_id, ratio: 1 }],
+            0.into(),
+            ValidAccountId::try_from(format!("platform{}", 1)).unwrap(),
+            0.into(),
+            None,
+            None,
+        );
+        let metadata_ref =
+            MetadataReference { reference: "ref".to_string(), reference_hash: vec![] };
+        contract.update_metadata_reference(Some(metadata_ref.clone()));
+        let meta = contract.set_metadata().ft_metadata;
+        assert_eq!(meta.reference.unwrap(), metadata_ref.reference);
+        assert_eq!(meta.reference_hash.unwrap(), Base64VecU8::from(metadata_ref.reference_hash));
+
+        contract.update_metadata_reference(None);
+
+        let meta = contract.set_metadata().ft_metadata;
+        assert!(meta.reference.as_ref().is_none());
+        assert!(meta.reference_hash.as_ref().is_none());
+    }
+
+    #[test]
+    /// Check that minimum storage linearly increases with the number of tokens
+    /// in a set
+    /// TODO: not working
     fn test_min_account_storage() {
-        todo!()
-        // test that min storage goes up linearly with an increase in n_tokens
+        let context = get_context(accounts(1));
+        testing_env!(context.build());
+        let mut prior_min_bal: u128 = 0;
+        let mut expected_diff: u128 = 0;
+        for i in 1..3 {
+            let token_ratios = (0..i)
+                .map(|x| TokenWithRatioValid {
+                    token_id: ValidAccountId::try_from(format!("account{}", x)).unwrap(),
+                    ratio: 1,
+                })
+                .collect();
+            println!("{:?}", token_ratios);
+            let contract = Contract::new_default_meta(
+                ValidAccountId::try_from(format!("owner{}", i)).unwrap(),
+                i.to_string(),
+                i.to_string(),
+                None,
+                token_ratios,
+                0.into(),
+                ValidAccountId::try_from(format!("platform{}", i)).unwrap(),
+                0.into(),
+                None,
+                None,
+            );
+            let storage_min = contract.accounts_storage_balance_bounds().min.0;
+
+            if i == 2 {
+                expected_diff = storage_min - prior_min_bal;
+            } else if i > 2 {
+                assert_eq!(storage_min - prior_min_bal, expected_diff);
+            }
+            prior_min_bal = storage_min;
+        }
     }
 
     #[test]
@@ -364,8 +461,6 @@ mod tests {
                 .get_ft_balance_internal(&accounts(1).to_string(), &token_id.clone().to_string()),
             0
         );
-
-        // TODO: with wrap
 
         testing_env!(context
             .storage_usage(env::storage_usage())

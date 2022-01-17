@@ -12,7 +12,7 @@
 *
 */
 
-use near_account::{Account, AccountDeposits, Accounts, NearAccounts, NewInfo};
+use near_account::{Account, AccountDeposits, AccountInfoTrait, Accounts, NearAccounts, NewInfo};
 // To conserve gas, efficient serialization is achieved through Borsh (http://borsh.io/)
 use near_contract_standards::storage_management::StorageManagement;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
@@ -39,6 +39,8 @@ impl NewInfo for AccountInfo {
         Self { deployed_contracts: Vector::new(format!("{}-b", account_id).as_bytes()) }
     }
 }
+
+impl AccountInfoTrait for AccountInfo {}
 
 // Structs in Rust are similar to other languages, and may include impl keyword as shown below
 // Note: the names of the structs are not important when calling the smart contract, but the function names are
@@ -112,7 +114,27 @@ impl Contract {
             .create_account()
             .transfer(self.deposit_for_contract)
             .add_full_access_key(env::signer_account_pk())
-            .deploy_contract(include_bytes!("../../res/token_set_fungible_token.wasm").to_vec());
+            .deploy_contract(include_bytes!("../../res/token_set_fungible_token.wasm").to_vec())
+            .function_call(
+                b"new_default_meta".to_vec(),
+                json!({
+                        "owner_id": owner_id,
+                        "name": name,
+                        "symbol": symbol,
+                        "icon_url": icon_url,
+                        "set_ratios": set_ratios,
+                        "platform_fee": platform_fee,
+                        "platform_id": platform_id,
+                        "owner_fee": owner_fee,
+                        "updatable_fee": updatable_fee,
+                        "metadata_reference": metadata_reference,
+                })
+                .to_string()
+                .as_bytes()
+                .to_vec(),
+                0,
+                BASE_GAS * 10,
+            );
 
         prom.then(
             Promise::new(env::current_account_id()).function_call(
@@ -136,7 +158,7 @@ impl Contract {
                 .as_bytes()
                 .to_vec(),
                 0,
-                BASE_GAS * 20,
+                BASE_GAS * 2,
             ),
         );
     }
@@ -145,45 +167,11 @@ impl Contract {
     pub fn resolve_contract_deploy(
         &mut self,
         caller: AccountId,
-        owner_id: AccountId,
         contract_id: AccountId,
-        name: String,
-        symbol: String,
-        icon_url: Option<String>,
-        set_ratios: Vec<TokenWithRatioValid>,
-        platform_fee: U128,
-        platform_id: ValidAccountId,
-        owner_fee: U128,
-        updatable_fee: Option<bool>,
-        metadata_reference: Option<MetadataReference>,
     ) -> PromiseOrValue<()> {
         match env::promise_result(0) {
             PromiseResult::NotReady => unreachable!(),
-            // Call the init function
-            // TODO: put into the resolve fn...
-            PromiseResult::Successful(_v) => {
-                let prom = Promise::new(contract_id).function_call(
-                    b"new_default_meta".to_vec(),
-                    json!({
-                            "owner_id": owner_id,
-                            "name": name,
-                            "symbol": symbol,
-                            "icon_url": icon_url,
-                            "set_ratios": set_ratios,
-                            "platform_fee": platform_fee,
-                            "platform_id": platform_id,
-                            "owner_fee": owner_fee,
-                            "updatable_fee": updatable_fee,
-                            "metadata_reference": metadata_reference,
-                    })
-                    .to_string()
-                    .as_bytes()
-                    .to_vec(),
-                    0,
-                    BASE_GAS * 10,
-                );
-                PromiseOrValue::Promise(prom)
-            }
+            PromiseResult::Successful(_v) => PromiseOrValue::Value(()),
             PromiseResult::Failed => {
                 log!("Registering contract {} for caller {} failed", &contract_id, &caller);
                 // Remove the contract from the vec

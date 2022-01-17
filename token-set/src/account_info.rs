@@ -1,4 +1,4 @@
-use near_account::NewInfo;
+use near_account::{AccountInfoTrait, NewInfo};
 use near_internal_balances_plugin::BalanceInfo;
 use near_sdk::{
     borsh::{self, BorshDeserialize, BorshSerialize},
@@ -17,3 +17,4 @@ impl NewInfo for AccountInfo {
     }
 }
 
+impl AccountInfoTrait for AccountInfo {}

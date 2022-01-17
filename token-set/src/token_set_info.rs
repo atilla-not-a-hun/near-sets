@@ -9,7 +9,6 @@ const FEE_DENOMINATOR: u128 = 1_000_000_000_000_000;
 
 impl SetInfo {
     pub(crate) fn new(set_ratios: Vec<TokenWithRatioValid>, set_initial_fee: FeeReceiver) -> Self {
-        // TODO: check each token_id ratio unique....
         if set_ratios.len() == 0 {
             panic!("Expected at least one token in the set");
         }
@@ -66,7 +65,6 @@ impl Contract {
     ///
     /// return the amount wrapped and given to the wrapper
     pub(crate) fn wrap_internal(&mut self, owner: &AccountId, amount: Option<Balance>) -> Balance {
-        // TODO: hmmmmm... should this be the predecessor or the signer???
         let caller = env::predecessor_account_id();
         let max_amount_wrapped = self.get_max_amount(&caller);
         let amount_wrap = amount.unwrap_or(max_amount_wrapped);
