@@ -68,7 +68,6 @@ impl Contract {
         let caller = env::predecessor_account_id();
         let max_amount_wrapped = self.get_max_amount(&caller);
         let amount_wrap = amount.unwrap_or(max_amount_wrapped);
-        // TODO: add test for this
         if amount_wrap > max_amount_wrapped {
             panic!(
                 "Maximum amount that can be wrapped is {}, tried wrapping {}",

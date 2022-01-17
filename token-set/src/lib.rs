@@ -377,13 +377,15 @@ mod tests {
         let mut prior_min_bal: u128 = 0;
         let mut expected_diff: u128 = 0;
         for i in 1..3 {
+            let context = get_context(accounts(1));
+            testing_env!(context.build());
             let token_ratios = (0..i)
                 .map(|x| TokenWithRatioValid {
                     token_id: ValidAccountId::try_from(format!("account{}", x)).unwrap(),
                     ratio: 1,
                 })
                 .collect();
-            println!("{:?}", token_ratios);
+            println!("aa;{:?}", token_ratios);
             let contract = Contract::new_default_meta(
                 ValidAccountId::try_from(format!("owner{}", i)).unwrap(),
                 i.to_string(),
