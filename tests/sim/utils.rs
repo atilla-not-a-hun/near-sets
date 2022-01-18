@@ -160,7 +160,6 @@ pub fn init_with_macros(
         signer_account: root,
         init_method: new()
     );
-    // TODO
     // uses default values for deposit and gas
     let token_set = deploy!(
         // Contract Proxy

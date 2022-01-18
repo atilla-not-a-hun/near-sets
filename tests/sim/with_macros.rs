@@ -81,7 +81,6 @@ fn simulate_overwrapping() {
     call!(alice, token_set.wrap(Some(100.into())), deposit = 1).assert_success();
 }
 
-// TODO: check that the internal amount increased and decreased accordingly for Alice
 #[test]
 fn simulate_wrapping() {
     let initial_balance = 1_000;
