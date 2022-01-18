@@ -5,6 +5,7 @@ use near_sdk::{collections::Vector, env, AccountId, Balance};
 
 use crate::{utils::U256, Contract, FeeReceiver, SetInfo, TokenWithRatio, TokenWithRatioValid};
 
+pub const WRAP_TO_UNDERLYING_RATIO: u128 = 1_000_000;
 const FEE_DENOMINATOR: u128 = 1_000_000_000_000_000;
 
 impl SetInfo {
@@ -41,9 +42,20 @@ impl SetInfo {
 
 impl Contract {
     pub(crate) fn on_burn(&mut self, account_id: AccountId, amount: Balance) {
+        if amount % WRAP_TO_UNDERLYING_RATIO != 0 {
+            panic!(
+                "Expected {} to be divisible by the wrap to underlying ratio of {}",
+                amount, WRAP_TO_UNDERLYING_RATIO
+            )
+        }
+        let amount_underlying = amount / WRAP_TO_UNDERLYING_RATIO;
         for i in 0..self.set_info.ratios.len() {
             let ratio = &self.set_info.ratios.get(i).unwrap();
-            self.increase_balance(&account_id, &ratio.token_id, ratio.ratio as u128 * amount);
+            self.increase_balance(
+                &account_id,
+                &ratio.token_id,
+                ratio.ratio as u128 * amount_underlying,
+            );
         }
     }
 
@@ -73,7 +85,14 @@ impl Contract {
                 "Maximum amount that can be wrapped is {}, tried wrapping {}",
                 max_amount_wrapped, amount_wrap
             );
+        } else if amount_wrap % WRAP_TO_UNDERLYING_RATIO != 0 {
+            panic!(
+                "Expected {} to be divisible by the wrap to underlying ratio of {}",
+                amount_wrap, WRAP_TO_UNDERLYING_RATIO
+            );
         }
+        let amount_wrap_scaled_down = amount_wrap / WRAP_TO_UNDERLYING_RATIO;
+
         let owner_inrcr = (U256::from(amount_wrap) * U256::from(self.set_info.fee.owner_fee)
             / U256::from(FEE_DENOMINATOR))
         .as_u128();
@@ -88,7 +107,7 @@ impl Contract {
         self.token.internal_deposit(&owner, owner_inrcr);
         self.token.internal_deposit(&self.set_info.fee.platform_id, platform_incr);
 
-        self.decrease_potentials(amount_wrap, &caller);
+        self.decrease_potentials(amount_wrap_scaled_down, &caller);
 
         amount_wrap
     }
@@ -111,6 +130,6 @@ impl Contract {
                 min = amount_out;
             }
         }
-        min
+        min * WRAP_TO_UNDERLYING_RATIO
     }
 }

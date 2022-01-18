@@ -5,7 +5,7 @@ use near_sdk_sim::{
     call, to_yocto, transaction::ExecutionStatus, view, ExecutionResult, DEFAULT_GAS,
 };
 use shared::TokenWithRatioValid;
-use token_set_fungible_token::SetMetadata;
+use token_set_fungible_token::{SetMetadata, WRAP_TO_UNDERLYING_RATIO};
 
 use crate::utils::{init_with_macros as init, register_user};
 
@@ -123,18 +123,21 @@ fn simulate_wrapping() {
     });
     call!(alice, token_set.wrap(None), deposit = 1).assert_success();
 
-    let amount_minted = initial_balance / 4;
+    let amount_minted = initial_balance / 4 * WRAP_TO_UNDERLYING_RATIO;
+    let amount_minted_scaled_down = initial_balance / 4;
     let expected_root = amount_minted * 1_000 / 100_000;
     let expected_bob = amount_minted * 4_000 / 100_000;
     let expected_alice = amount_minted - expected_bob - expected_root;
 
     // Check the ft balances decreased after wrapping
     // Check the balances increased on unwrapping
+    let mut post_wrap_bal: Vec<u128> = vec![];
     fts.iter().enumerate().for_each(|(i, ft)| {
         let tok_bal: U128 =
             view!(token_set.get_ft_balance(alice.valid_account_id(), ft.valid_account_id()))
                 .unwrap_json();
-        let expected_bal = initial_balance - amount_minted * ratios[i] as u128;
+        let expected_bal = initial_balance - amount_minted_scaled_down * ratios[i] as u128;
+        post_wrap_bal.push(tok_bal.0);
         assert_eq!(tok_bal.0, expected_bal);
     });
 
@@ -158,22 +161,26 @@ fn simulate_wrapping() {
     assert_eq!(total_supply.0, amount_minted);
 
     // Unwrap
-    call!(alice, token_set.unwrap(U128::from(expected_alice)), deposit = 1).assert_success();
+    let expected_alice_rounded =
+        expected_alice / WRAP_TO_UNDERLYING_RATIO * WRAP_TO_UNDERLYING_RATIO;
+    call!(alice, token_set.unwrap(U128::from(expected_alice_rounded)), deposit = 1)
+        .assert_success();
 
     let total_supply: U128 = view!(token_set.ft_total_supply()).unwrap_json();
-    assert_eq!(total_supply.0, amount_minted - expected_alice);
+    assert_eq!(total_supply.0, amount_minted - expected_alice_rounded);
 
     let alice_balance: U128 =
         view!(token_set.ft_balance_of(alice.valid_account_id())).unwrap_json();
-    assert_eq!(alice_balance.0, 0);
+    assert_eq!(alice_balance.0, expected_alice - expected_alice_rounded);
 
     // Check the balances increased on unwrapping
     fts.iter().enumerate().for_each(|(i, ft)| {
         let tok_bal: U128 =
             view!(token_set.get_ft_balance(alice.valid_account_id(), ft.valid_account_id()))
                 .unwrap_json();
-        let fee_taken = (bob_balance.0 + root_balance.0) * ratios[i] as u128;
-        let expected_bal = initial_balance - fee_taken;
+        let expected_bal = post_wrap_bal[i]
+            + expected_alice_rounded / WRAP_TO_UNDERLYING_RATIO * ratios[i] as u128;
+
         assert_eq!(tok_bal.0, expected_bal);
     });
 }

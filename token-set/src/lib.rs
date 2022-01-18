@@ -31,9 +31,12 @@ use near_sdk::{
 };
 use shared::{MetadataReference, TokenWithRatio, TokenWithRatioValid};
 
+
 mod account_info;
 mod token_set_info;
 mod utils;
+
+pub use token_set_info::WRAP_TO_UNDERLYING_RATIO;
 
 near_sdk::setup_alloc!();
 
